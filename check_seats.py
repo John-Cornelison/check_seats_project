@@ -1,7 +1,13 @@
 import os
+import time
+import datetime
 import smtplib
 from email.message import EmailMessage
 from playwright.sync_api import sync_playwright
+from dotenv import load_dotenv
+
+# Load passwords from the .env file locally
+load_dotenv()
 
 # --- CONFIGURATION ---
 CLASS_URL = "https://csprd.ctclink.us/psc/csprd_6/EMPLOYEE/SA/c/SSR_STUDENT_FL.SSR_MD_CRSEINFO_FL.GBL?Action=U&MD=Y&GMenu=SSR_STUDENT_FL&GComp=SSR_START_PAGE_FL&GPage=SSR_START_PAGE_FL&scname=CS_SSR_MANAGE_CLASSES_NAV"
@@ -37,7 +43,7 @@ def check_status():
                 print("❌ Session expired! Redirected to login page.")
                 send_notification(
                     "⚠️ Action Required: Update state.json Session",
-                    "Your class scraper hit a login wall. Run your local save_state.py script to generate a fresh state.json, and push it to GitHub."
+                    "Your class scraper hit a login wall. Run your local save_state.py script to generate a fresh state.json."
                 )
                 return
 
@@ -46,19 +52,16 @@ def check_status():
             search_bar_selector = "#PTS_KEYWORDS3"
             
             try:
-                # Wait for the search box, type the class, and press Enter
                 page.wait_for_selector(search_bar_selector, timeout=10000)
                 page.fill(search_bar_selector, "BIOL& 241")
                 page.keyboard.press("Enter")
                 print("Search submitted. Waiting for results to load...")
                 
-                # Wait for the specific search result hyperlink to appear and click it
                 result_link_selector = "[id='PTS_LIST_TITLE$0']"
                 page.wait_for_selector(result_link_selector, timeout=15000)
                 page.click(result_link_selector)
                 print("Clicked the BIOL& 241 link. Loading class tables...")
                 
-                # Give the portal time to fetch the actual table from the database
                 page.wait_for_timeout(5000)
                 
             except Exception:
@@ -118,4 +121,17 @@ def check_status():
             browser.close()
 
 if __name__ == "__main__":
-    check_status()
+    print("Starting the smart local seat checker...")
+    while True:
+        # Get the current hour (0-23 format) based on your laptop's clock
+        current_hour = datetime.datetime.now().hour
+        
+        # Check if the time is between 8 AM (8) and 9:59 PM (21)
+        if 8 <= current_hour < 22:
+            print(f"\n[{datetime.datetime.now().strftime('%I:%M %p')}] Within active hours. Checking portal...")
+            check_status()
+        else:
+            print(f"\n[{datetime.datetime.now().strftime('%I:%M %p')}] Outside of 8 AM - 10 PM window. Skipping check.")
+            
+        print("Sleeping for 14 minutes...")
+        time.sleep(840) # 840 seconds = 14 minutes
